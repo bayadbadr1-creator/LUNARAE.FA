@@ -1,38 +1,45 @@
-// PRODUITS INITIALES
-const defaultProducts = [
-    { 
-        id: 1, 
-        name: "Oversized Hoodie Vintage Black", 
-        price: 350, 
-        category: "hoodies", 
-        images: [
-            "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=500",
-            "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=500"
-        ], 
-        inStock: true, 
-        discount: 0 
-    },
-    { 
-        id: 2, 
-        name: "T-Shirt Graphic Heavyweight White", 
-        price: 220, 
-        category: "tshirts", 
-        images: [
-            "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500"
-        ], 
-        inStock: true, 
-        discount: 0 
-    }
-];
+// ==========================================
+// 1. CONFIGURATION & INITIALISATION FIREBASE
+// ==========================================
+const firebaseConfig = {
+    apiKey: "AIzaSyD_x1qY8E7UWc8VYHQ8K6pUXe_q3_PqCEo",
+    authDomain: "lunarae-8acff.firebaseapp.com",
+    databaseURL: "https://lunarae-8acff-default-rtdb.firebaseio.com",
+    projectId: "lunarae-8acff",
+    storageBucket: "lunarae-8acff.firebasestorage.app",
+    messagingSenderId: "533518294314",
+    appId: "1:533518294314:web:b5bc13455d69d11a4dd253"
+};
 
-// Remplacez la ligne d'initialisation des produits par ceci :
-let products = JSON.parse(localStorage.getItem("lunarae_products")) || [];
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+const productsRef = database.ref('products');
+
+// Variables globales
+let products = [];
 let cart = [];
 let keyBuffer = "";
 let uploadedImages = [];
+
+// ==========================================
+// 2. ÉCOUTE EN TEMPS RÉEL FIREBASE
+// ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    saveProducts();
-    renderProducts(products);
+    // Synchronisation en temps réel avec Firebase (remplace localStorage)
+    productsRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        products = [];
+        if (data) {
+            Object.keys(data).forEach(key => {
+                products.push({
+                    id: key, // Clé unique Firebase
+                    ...data[key]
+                });
+            });
+        }
+        renderProducts(products);
+        renderAdminList();
+    });
     
     // Détection clavier du mot 'admin'
     document.addEventListener("keydown", (e) => {
@@ -50,10 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-function saveProducts() {
-    localStorage.setItem("lunarae_products", JSON.stringify(products));
-}
-
 function getFinalPrice(product) {
     if (product.discount > 0) {
         return Math.round(product.price * (1 - product.discount / 100));
@@ -61,7 +64,9 @@ function getFinalPrice(product) {
     return product.price;
 }
 
-// AFFICHAGE DES PRODUITS
+// ==========================================
+// 3. AFFICHAGE DES PRODUITS (CLIENT)
+// ==========================================
 function renderProducts(items) {
     const container = document.getElementById("product-container");
     if (!container) return;
@@ -77,7 +82,6 @@ function renderProducts(items) {
             
         const mainImg = imgList[0];
 
-        // Vignettes miniatures sous l'image principale
         let thumbnailsHTML = "";
         if (imgList.length > 1) {
             thumbnailsHTML = `<div class="product-thumbnails">`;
@@ -85,7 +89,7 @@ function renderProducts(items) {
                 thumbnailsHTML += `
                     <img src="${imgUrl}" 
                          class="thumb-img ${index === 0 ? 'active' : ''}" 
-                         onclick="changeProductImage(${product.id}, '${imgUrl}', this)" 
+                         onclick="changeProductImage('${product.id}', '${imgUrl}', this)" 
                          alt="Aperçu">
                 `;
             });
@@ -109,7 +113,7 @@ function renderProducts(items) {
                             ${finalPrice} DH
                         </div>
                     </div>
-                    <button class="btn-add-cart" onclick="addToCart(${product.id})" ${isOutOfStock ? 'disabled' : ''}>
+                    <button class="btn-add-cart" onclick="addToCart('${product.id}')" ${isOutOfStock ? 'disabled' : ''}>
                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
                         ${isOutOfStock ? 'Épuisé' : 'Ajouter au panier'}
                     </button>
@@ -139,7 +143,9 @@ function filterProducts(category, btn) {
     }
 }
 
-/* PANIER */
+// ==========================================
+// 4. PANIER
+// ==========================================
 function addToCart(productId) {
     const product = products.find(p => p.id === productId);
     if (!product || !product.inStock) return;
@@ -156,13 +162,11 @@ function addToCart(productId) {
     openCartModal();
 }
 
-// SUPPRIMER UN ARTICLE DU PANIER
 function removeFromCart(productId) {
     cart = cart.filter(item => item.id !== productId);
     updateCartUI();
 }
 
-// MISE À JOUR DE L'AFFICHAGE DU PANIER
 function updateCartUI() {
     const cartContainer = document.getElementById("cart-items-container");
     const countSpan = document.getElementById("cart-count");
@@ -192,7 +196,7 @@ function updateCartUI() {
                     <div class="cart-item-title">${item.name}</div>
                     <div class="cart-item-price">${item.finalPrice} DH (x${item.qty})</div>
                 </div>
-                <button class="cart-item-remove" onclick="removeFromCart(${item.id})" title="Supprimer de la commande">
+                <button class="cart-item-remove" onclick="removeFromCart('${item.id}')" title="Supprimer de la commande">
                     &times;
                 </button>
             </div>
@@ -210,7 +214,9 @@ function closeCartModal() {
     if (modal) modal.classList.remove("active");
 }
 
-/* ADMIN */
+// ==========================================
+// 5. PANNEAU ADMIN & GESTION FIREBASE
+// ==========================================
 function openAdminModal() {
     renderAdminList();
     const modal = document.getElementById("admin-modal");
@@ -235,81 +241,106 @@ function renderAdminList() {
                     <small>${p.category}</small>
                 </div>
                 <div class="admin-actions">
-                    <button class="admin-btn-action btn-stock" onclick="toggleStock(${p.id})">
+                    <button class="admin-btn-action btn-stock" onclick="toggleStock('${p.id}')">
                         ${p.inStock ? 'Mettre en rupture' : 'Remettre en stock'}
                     </button>
-                    <button class="admin-btn-action btn-promo" onclick="setPromo(${p.id})">
+                    <button class="admin-btn-action btn-promo" onclick="setPromo('${p.id}')">
                         ${p.discount > 0 ? `Promo: -${p.discount}% (Changer)` : 'Ajouter Promo'}
                     </button>
-                    <button class="admin-btn-action btn-delete" onclick="deleteProduct(${p.id})">Supprimer</button>
+                    <button class="admin-btn-action btn-delete" onclick="deleteProduct('${p.id}')">Supprimer</button>
                 </div>
             </div>
         `;
     });
 }
 
+function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    const previewContainer = document.getElementById("file-preview-list");
+    if (previewContainer) previewContainer.innerHTML = "";
+    uploadedImages = [];
+
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const imgUrl = event.target.result;
+            uploadedImages.push(imgUrl);
+
+            if (previewContainer) {
+                previewContainer.innerHTML += `
+                    <div class="preview-thumb">
+                        <img src="${imgUrl}" alt="Aperçu">
+                    </div>
+                `;
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// AJOUT DE PRODUIT DANS FIREBASE
 function handleAddProduct(e) {
     e.preventDefault();
     const name = document.getElementById("admin-name").value.trim();
     const price = parseFloat(document.getElementById("admin-price").value);
     const category = document.getElementById("admin-category").value;
 
-    const query = encodeURIComponent(name);
-    const generatedImages = [
-        `https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500`,
-        `https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=500`
-    ];
+    const finalImages = uploadedImages.length > 0 
+        ? uploadedImages 
+        : ["https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500"];
 
-    const newProd = {
-        id: Date.now(),
-        name,
-        price,
-        category,
-        images: generatedImages,
+    // Sauvegarde en ligne sur Firebase
+    productsRef.push({
+        name: name,
+        price: price,
+        category: category,
+        images: finalImages,
         inStock: true,
         discount: 0
-    };
-
-    products.push(newProd);
-    saveProducts();
-    renderProducts(products);
-    renderAdminList();
-    document.getElementById("add-product-form").reset();
+    }).then(() => {
+        document.getElementById("add-product-form").reset();
+        const previewContainer = document.getElementById("file-preview-list");
+        if (previewContainer) previewContainer.innerHTML = "";
+        uploadedImages = [];
+    }).catch(err => {
+        alert("Erreur lors de l'ajout : " + err.message);
+    });
 }
 
+// CHANGER LE STOCK DANS FIREBASE
 function toggleStock(id) {
     const p = products.find(prod => prod.id === id);
     if (p) {
-        p.inStock = !p.inStock;
-        saveProducts();
-        renderProducts(products);
-        renderAdminList();
+        database.ref('products/' + id).update({
+            inStock: !p.inStock
+        });
     }
 }
 
+// METTRE UNE PROMO DANS FIREBASE
 function setPromo(id) {
     const p = products.find(prod => prod.id === id);
     if (p) {
         const val = prompt("Entrez le pourcentage de réduction (ex: 20 pour 20%):", p.discount || 0);
         if (val !== null) {
-            p.discount = Math.min(100, Math.max(0, parseInt(val) || 0));
-            saveProducts();
-            renderProducts(products);
-            renderAdminList();
+            const newDiscount = Math.min(100, Math.max(0, parseInt(val) || 0));
+            database.ref('products/' + id).update({
+                discount: newDiscount
+            });
         }
     }
 }
 
+// SUPPRIMER UN PRODUIT DE FIREBASE
 function deleteProduct(id) {
     if (confirm("Voulez-vous vraiment supprimer ce produit ?")) {
-        products = products.filter(p => p.id !== id);
-        saveProducts();
-        renderProducts(products);
-        renderAdminList();
+        database.ref('products/' + id).remove();
     }
 }
 
-/* VALIDATION WHATSAPP */
+// ==========================================
+// 6. VALIDATION & ENVOI WHATSAPP
+// ==========================================
 function validatePhoneInput(input) { input.value = input.value.replace(/[^0-9]/g, ''); }
 
 function clearError(inputId) {
@@ -359,57 +390,4 @@ function sendOrderToWhatsApp() {
 
     const msg = `*COMMANDE LUNARAE.ma*\n\nNom: ${name}\nTél: ${phone}\nVille: ${city}\n\nArticles:\n${orderList}\nTotal: ${total} DH`;
     window.open(`https://wa.me/212705948052?text=${encodeURIComponent(msg)}`, "_blank");
-}
-// CONVERTIT LES FICHIERS SÉLECTIONNÉS EN APERÇU
-function handleFileSelect(e) {
-    const files = Array.from(e.target.files);
-    const previewContainer = document.getElementById("file-preview-list");
-    previewContainer.innerHTML = "";
-    uploadedImages = [];
-
-    files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const imgUrl = event.target.result;
-            uploadedImages.push(imgUrl);
-
-            previewContainer.innerHTML += `
-                <div class="preview-thumb">
-                    <img src="${imgUrl}" alt="Aperçu">
-                </div>
-            `;
-        };
-        reader.readAsDataURL(file);
-    });
-}
-
-// REMPLACEZ VOTRE ANCIENNE FONCTION handleAddProduct PAR CELLE-CI
-function handleAddProduct(e) {
-    e.preventDefault();
-    const name = document.getElementById("admin-name").value.trim();
-    const price = parseFloat(document.getElementById("admin-price").value);
-    const category = document.getElementById("admin-category").value;
-
-    const finalImages = uploadedImages.length > 0 
-        ? uploadedImages 
-        : ["https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500"];
-
-    const newProd = {
-        id: Date.now(),
-        name,
-        price,
-        category,
-        images: finalImages,
-        inStock: true,
-        discount: 0
-    };
-
-    products.push(newProd);
-    saveProducts();
-    renderProducts(products);
-    renderAdminList();
-
-    document.getElementById("add-product-form").reset();
-    document.getElementById("file-preview-list").innerHTML = "";
-    uploadedImages = [];
 }
