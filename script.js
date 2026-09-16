@@ -25,7 +25,8 @@ const defaultProducts = [
     }
 ];
 
-let products = JSON.parse(localStorage.getItem("lunarae_products")) || defaultProducts;
+// Remplacez la ligne d'initialisation des produits par ceci :
+let products = JSON.parse(localStorage.getItem("lunarae_products")) || [];
 let cart = [];
 let keyBuffer = "";
 let uploadedImages = [];
@@ -214,23 +215,6 @@ function openAdminModal() {
     renderAdminList();
     const modal = document.getElementById("admin-modal");
     if (modal) modal.classList.add("active");
-   // Quand le mot "admin" est détecté dans votre code existant :
-if (typedKeys === "admin") {
-    document.getElementById("admin-pop").style.display = "flex";
-    document.getElementById("pass-input").focus();
-    typedKeys = "";
-}
-
-// Fonction de vérification du mot de passe
-function validatePass() {
-    const input = document.getElementById("pass-input").value;
-    if (input === "1234") { // Votre mot de passe
-        window.location.href = "admin.html";
-    } else {
-        alert("Mot de passe incorrect !");
-        document.getElementById("pass-input").value = "";
-    }
-} 
 }
 
 function closeAdminModal() {
