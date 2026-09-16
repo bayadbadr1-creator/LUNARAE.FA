@@ -21,11 +21,6 @@ let cart = [];
 let keyBuffer = "";
 let uploadedImages = [];
 
-// ==========================================
-// 2. ÉCOUTE EN TEMPS RÉEL FIREBASE
-// ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-    // Synchronisation en temps réel avec Firebase (remplace localStorage)
     productsRef.on('value', (snapshot) => {
         const data = snapshot.val();
         products = [];
@@ -55,7 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
-});
 
 function getFinalPrice(product) {
     if (product.discount > 0) {
