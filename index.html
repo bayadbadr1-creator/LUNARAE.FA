@@ -8,13 +8,11 @@
 </head>
 <body>
 
-
     <!-- HEADER / NAVIGATION -->
     <header class="navbar">
         <div class="logo">LUNARAE</div>
         
         <div class="nav-actions">
-            <!-- BOUTON PANIER -->
             <button class="cart-btn" onclick="openCartModal()">
                 <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
@@ -26,21 +24,22 @@
             
             <button id="ghost-admin-btn" class="ghost-btn" onclick="openAdminModal()">Admin</button>
         </div>
-    
     </header>
-<!-- SECTION D'ACCUEIL (HERO SECTION) -->
-<section class="hero-section">
-    <div class="hero-overlay"></div>
-    <div class="hero-content">
-        <h1 class="hero-title">VOTRE STYLE ICI</h1>
-        <p class="hero-slogan">LUNARAE  L'élégance streetwear </p>
-        <p class="hero-message">
-            Bienvenue chez LUNARAE ! Découvrez notre nouvelle collection exclusive pensée pour affirmer votre identité.
-        </p>
-        <a href="#product-container" class="hero-btn">Découvrir la collection</a>
-    </div>
-</section>
-    <!-- FILTRES DE CATÉGORIES -->
+
+    <!-- HERO SECTION -->
+    <section class="hero-section">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">VOTRE STYLE ICI</h1>
+            <p class="hero-slogan">LUNARAE L'élégance streetwear</p>
+            <p class="hero-message">
+                Bienvenue chez LUNARAE ! Découvrez notre nouvelle collection exclusive pensée pour affirmer votre identité.
+            </p>
+            <a href="#product-container" class="hero-btn">Découvrir la collection</a>
+        </div>
+    </section>
+
+    <!-- FILTRES -->
     <div class="filter-container">
         <button class="filter-btn active" onclick="filterProducts('all', this)">Tous</button>
         <button class="filter-btn" onclick="filterProducts('hoodies', this)">Hoodies</button>
@@ -51,6 +50,14 @@
 
     <!-- CONTENEUR DES PRODUITS -->
     <main class="products-grid" id="product-container"></main>
+
+    <!-- MODAL DÉTAILS PRODUIT -->
+    <div id="product-detail-modal" class="modal">
+        <div class="modal-content product-detail-content">
+            <button class="close-btn" onclick="closeProductDetailModal()">&times;</button>
+            <div id="product-detail-body"></div>
+        </div>
+    </div>
 
     <!-- MODAL DU PANIER -->
     <div id="cart-modal" class="modal">
@@ -102,35 +109,38 @@
                 <button class="close-btn" onclick="closeAdminModal()">&times;</button>
             </div>
 
-        <form id="add-product-form" onsubmit="handleAddProduct(event)">
-    <h3>Ajouter un Nouveau Produit</h3>
-    
-    <input type="text" id="admin-name" placeholder="Nom du produit (ex: Hoodie Noir Vintage)" required>
-    <input type="number" id="admin-price" placeholder="Prix (DH)" required>
-    
-    <select id="admin-category" required>
-        <option value="hoodies">Hoodies</option>
-        <option value="tshirts">T-Shirts</option>
-        <option value="pants">Pantalons</option>
-        <option value="accessories">Accessoires</option>
-    </select>
-    
-    <!-- BOUTON UPLOAD D'IMAGES -->
-    <div class="file-upload-wrapper">
-        <label for="admin-images" class="btn-file-upload">
-            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            Choisir les images du produit
-        </label>
-        <input type="file" id="admin-images" accept="image/*" multiple onchange="handleFileSelect(event)">
-        <div id="file-preview-list" class="file-preview-list"></div>
-    </div>
-    
-    <button type="submit" class="admin-btn-submit">Ajouter le produit</button>
-</form>
+            <form id="add-product-form" onsubmit="handleAddProduct(event)">
+                <h3>Ajouter un Nouveau Produit</h3>
+                
+                <input type="text" id="admin-name" placeholder="Nom du produit (ex: Hoodie Noir Vintage)" required>
+                <input type="number" id="admin-price" placeholder="Prix (DH)" required>
+                
+                <select id="admin-category" required>
+                    <option value="hoodies">Hoodies</option>
+                    <option value="tshirts">T-Shirts</option>
+                    <option value="pants">Pantalons</option>
+                    <option value="accessories">Accessoires</option>
+                </select>
+
+                <input type="text" id="admin-sizes" placeholder="Tailles séparées par virgules (ex: S, M, L, XL)">
+                <input type="text" id="admin-colors" placeholder="Couleurs séparées par virgules (ex: Noir, Blanc, Beige)">
+                <textarea id="admin-description" placeholder="Description du produit..." rows="3"></textarea>
+                
+                <div class="file-upload-wrapper">
+                    <label for="admin-images" class="btn-file-upload">
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Choisir les images du produit
+                    </label>
+                    <input type="file" id="admin-images" accept="image/*" multiple onchange="handleFileSelect(event)">
+                    <div id="file-preview-list" class="file-preview-list"></div>
+                </div>
+                
+                <button type="submit" class="admin-btn-submit">Ajouter le produit</button>
+            </form>
 
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
 
@@ -138,64 +148,56 @@
             <div id="admin-product-list"></div>
         </div>
     </div>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="script.js"></script>
-<!-- CARTE D'INFORMATIONS DU SITE -->
-<footer class="info-card-container">
-    <div class="info-card">
-        <div class="info-card-section">
-            <div class="info-card-brand">
-                <span class="brand-logo">LUNARAE.ma</span>
-                <p>Votre boutique e-commerce de mode streetwear au Maroc.</p>
+
+    <!-- FOOTER -->
+    <footer class="info-card-container">
+        <div class="info-card">
+            <div class="info-card-section">
+                <div class="info-card-brand">
+                    <span class="brand-logo">LUNARAE.ma</span>
+                    <p>Votre boutique e-commerce de mode streetwear au Maroc.</p>
+                </div>
+            </div>
+
+            <div class="info-card-section">
+                <h4>Nos Engagements</h4>
+                <ul class="info-list">
+                    <li>
+                        <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="3" width="15" height="13"></rect>
+                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                        </svg>
+                        Livraison partout au Maroc
+                    </li>
+                    <li>
+                        <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                            <line x1="2" y1="10" x2="22" y2="10"></line>
+                        </svg>
+                        Paiement à la livraison
+                    </li>
+                </ul>
+            </div>
+
+            <div class="info-card-section">
+                <h4>Contact</h4>
+                <p>Commande directe par WhatsApp :</p>
+                <a href="https://wa.me/212705948052" target="_blank" class="info-contact-btn">
+                    +212 705-948052
+                </a>
             </div>
         </div>
-
-        <div class="info-card-section">
-            <h4>Nos Engagements</h4>
-            <ul class="info-list">
-                <li>
-                    <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="1" y="3" width="15" height="13"></rect>
-                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                        <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                        <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                    </svg>
-                    Livraison partout au Maroc
-                </li>
-                <li>
-                    <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                        <line x1="2" y1="10" x2="22" y2="10"></line>
-                    </svg>
-                    Paiement à la livraison
-                </li>
-                <li>
-                    <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                    </svg>
-                    +212 705-948052
-                </li>
-            </ul>
+        
+        <div class="info-card-bottom">
+            &copy; 2026 LUNARAE - Tous droits réservés.
         </div>
-
-        <div class="info-card-section">
-           
-
-        <div class="info-card-section">
-            <h4>Contact</h4>
-            <p>Commande directe par WhatsApp :</p>
-            <a href="https://wa.me/212705948052" target="_blank" class="info-contact-btn">
-                +212 705-948052
-            </a>
-        </div>
-    </div>
-    
-    <div class="info-card-bottom">
-       
-       
-        &copy; 2026 LUNARAE.ma - Tous droits réservés.
-    </div>
-</footer>
+    </footer>
 </body>
 </html>

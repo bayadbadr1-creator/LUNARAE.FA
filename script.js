@@ -15,41 +15,39 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const productsRef = database.ref('products');
 
-// Variables globales
 let products = [];
 let cart = [];
 let keyBuffer = "";
 let uploadedImages = [];
 
-    productsRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        products = [];
-        if (data) {
-            Object.keys(data).forEach(key => {
-                products.push({
-                    id: key, // Clé unique Firebase
-                    ...data[key]
-                });
+productsRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    products = [];
+    if (data) {
+        Object.keys(data).forEach(key => {
+            products.push({
+                id: key,
+                ...data[key]
             });
-        }
-        renderProducts(products);
-        renderAdminList();
-    });
+        });
+    }
+    renderProducts(products);
+    renderAdminList();
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    keyBuffer += e.key.toLowerCase();
+    if (keyBuffer.length > 10) keyBuffer = keyBuffer.substring(keyBuffer.length - 10);
     
-    // Détection clavier du mot 'admin'
-    document.addEventListener("keydown", (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        keyBuffer += e.key.toLowerCase();
-        if (keyBuffer.length > 10) keyBuffer = keyBuffer.substring(keyBuffer.length - 10);
-        
-        if (keyBuffer.endsWith("admin")) {
-            const ghostBtn = document.getElementById("ghost-admin-btn");
-            if (ghostBtn) {
-                ghostBtn.classList.add("visible");
-                openAdminModal();
-            }
+    if (keyBuffer.endsWith("admin")) {
+        const ghostBtn = document.getElementById("ghost-admin-btn");
+        if (ghostBtn) {
+            ghostBtn.classList.add("visible");
+            openAdminModal();
         }
-    });
+    }
+});
 
 function getFinalPrice(product) {
     if (product.discount > 0) {
@@ -59,7 +57,7 @@ function getFinalPrice(product) {
 }
 
 // ==========================================
-// 3. AFFICHAGE DES PRODUITS (CLIENT)
+// 2. AFFICHAGE DES PRODUITS & DÉTAILS
 // ==========================================
 function renderProducts(items) {
     const container = document.getElementById("product-container");
@@ -69,47 +67,29 @@ function renderProducts(items) {
     items.forEach(product => {
         const finalPrice = getFinalPrice(product);
         const isOutOfStock = !product.inStock;
-        
         const imgList = product.images && product.images.length > 0 
             ? product.images 
             : [product.img || "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500"];
             
         const mainImg = imgList[0];
 
-        let thumbnailsHTML = "";
-        if (imgList.length > 1) {
-            thumbnailsHTML = `<div class="product-thumbnails">`;
-            imgList.forEach((imgUrl, index) => {
-                thumbnailsHTML += `
-                    <img src="${imgUrl}" 
-                         class="thumb-img ${index === 0 ? 'active' : ''}" 
-                         onclick="changeProductImage('${product.id}', '${imgUrl}', this)" 
-                         alt="Aperçu">
-                `;
-            });
-            thumbnailsHTML += `</div>`;
-        }
-
         container.innerHTML += `
             <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}">
                 ${isOutOfStock ? '<span class="badge-stock">RUPTURE DE STOCK</span>' : ''}
                 ${product.discount > 0 ? `<span class="badge-promo">-${product.discount}%</span>` : ''}
                 
-                <img src="${mainImg}" id="main-img-${product.id}" class="product-img" alt="${product.name}">
-                
-                ${thumbnailsHTML}
+                <img src="${mainImg}" class="product-img" alt="${product.name}" onclick="openProductDetailModal('${product.id}')">
 
                 <div class="product-info">
-                    <div>
+                    <div onclick="openProductDetailModal('${product.id}')" style="cursor: pointer;">
                         <h3 class="product-title">${product.name}</h3>
                         <div class="product-price">
                             ${product.discount > 0 ? `<span class="old-price">${product.price} DH</span>` : ''}
                             ${finalPrice} DH
                         </div>
                     </div>
-                    <button class="btn-add-cart" onclick="addToCart('${product.id}')" ${isOutOfStock ? 'disabled' : ''}>
-                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                        ${isOutOfStock ? 'Épuisé' : 'Ajouter au panier'}
+                    <button class="btn-add-cart" onclick="openProductDetailModal('${product.id}')">
+                        Voir les détails
                     </button>
                 </div>
             </div>
@@ -117,13 +97,117 @@ function renderProducts(items) {
     });
 }
 
-function changeProductImage(productId, newSrc, thumbElement) {
-    const mainImg = document.getElementById(`main-img-${productId}`);
-    if (mainImg) mainImg.src = newSrc;
+function openProductDetailModal(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
 
-    const parent = thumbElement.parentElement;
-    parent.querySelectorAll('.thumb-img').forEach(img => img.classList.remove('active'));
-    thumbElement.classList.add('active');
+    const finalPrice = getFinalPrice(product);
+    const imgList = product.images && product.images.length > 0 
+        ? product.images 
+        : [product.img || "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500"];
+
+    const sizes = product.sizes ? product.sizes.split(',').map(s => s.trim()) : [];
+    const colors = product.colors ? product.colors.split(',').map(c => c.trim()) : [];
+
+    let sizesHTML = sizes.length > 0 ? `
+        <div class="option-group">
+            <label>Taille :</label>
+            <div class="option-buttons" id="detail-sizes">
+                ${sizes.map((s, i) => `<button class="option-btn ${i === 0 ? 'active' : ''}" onclick="selectOption(this)">${s}</button>`).join('')}
+            </div>
+        </div>
+    ` : '';
+
+    let colorsHTML = colors.length > 0 ? `
+        <div class="option-group">
+            <label>Couleur :</label>
+            <div class="option-buttons" id="detail-colors">
+                ${colors.map((c, i) => `<button class="option-btn ${i === 0 ? 'active' : ''}" onclick="selectOption(this)">${c}</button>`).join('')}
+            </div>
+        </div>
+    ` : '';
+
+    let thumbsHTML = imgList.length > 1 ? `
+        <div class="detail-thumbs">
+            ${imgList.map((img, i) => `<img src="${img}" class="thumb-img ${i === 0 ? 'active' : ''}" onclick="changeDetailImage('${img}', this)">`).join('')}
+        </div>
+    ` : '';
+
+    const detailBody = document.getElementById("product-detail-body");
+    detailBody.innerHTML = `
+        <div class="detail-grid">
+            <div class="detail-images">
+                <img src="${imgList[0]}" id="detail-main-img" class="detail-main-img">
+                ${thumbsHTML}
+            </div>
+            <div class="detail-info">
+                <h2>${product.name}</h2>
+                <div class="product-price">
+                    ${product.discount > 0 ? `<span class="old-price">${product.price} DH</span>` : ''}
+                    ${finalPrice} DH
+                </div>
+                <p class="detail-desc">${product.description || "Aucune description disponible."}</p>
+                
+                ${sizesHTML}
+                ${colorsHTML}
+
+                <button class="btn-add-cart" style="margin-top: 15px;" onclick="addToCartWithOptions('${product.id}')" ${!product.inStock ? 'disabled' : ''}>
+                    ${!product.inStock ? 'Épuisé' : 'Ajouter au panier'}
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById("product-detail-modal").classList.add("active");
+}
+
+function closeProductDetailModal() {
+    document.getElementById("product-detail-modal").classList.remove("active");
+}
+
+function changeDetailImage(src, element) {
+    document.getElementById("detail-main-img").src = src;
+    element.parentElement.querySelectorAll('.thumb-img').forEach(el => el.classList.remove('active'));
+    element.classList.add('active');
+}
+
+function selectOption(btn) {
+    btn.parentElement.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function addToCartWithOptions(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product || !product.inStock) return;
+
+    const selectedSizeBtn = document.querySelector("#detail-sizes .option-btn.active");
+    const selectedColorBtn = document.querySelector("#detail-colors .option-btn.active");
+
+    const size = selectedSizeBtn ? selectedSizeBtn.textContent : null;
+    const color = selectedColorBtn ? selectedColorBtn.textContent : null;
+
+    const mainImg = (product.images && product.images[0]) || product.img;
+
+    const cartItemId = `${productId}-${size || ''}-${color || ''}`;
+    const existing = cart.find(i => i.cartItemId === cartItemId);
+
+    if (existing) {
+        existing.qty += 1;
+    } else {
+        cart.push({
+            ...product,
+            cartItemId,
+            selectedSize: size,
+            selectedColor: color,
+            img: mainImg,
+            qty: 1,
+            finalPrice: getFinalPrice(product)
+        });
+    }
+
+    closeProductDetailModal();
+    updateCartUI();
+    openCartModal();
 }
 
 function filterProducts(category, btn) {
@@ -138,26 +222,10 @@ function filterProducts(category, btn) {
 }
 
 // ==========================================
-// 4. PANIER
+// 3. PANIER & COMMANDE
 // ==========================================
-function addToCart(productId) {
-    const product = products.find(p => p.id === productId);
-    if (!product || !product.inStock) return;
-
-    const mainImg = (product.images && product.images[0]) || product.img;
-
-    const item = cart.find(i => i.id === productId);
-    if (item) {
-        item.qty += 1;
-    } else {
-        cart.push({ ...product, img: mainImg, qty: 1, finalPrice: getFinalPrice(product) });
-    }
-    updateCartUI();
-    openCartModal();
-}
-
-function removeFromCart(productId) {
-    cart = cart.filter(item => item.id !== productId);
+function removeFromCart(cartItemId) {
+    cart = cart.filter(item => item.cartItemId !== cartItemId);
     updateCartUI();
 }
 
@@ -183,44 +251,32 @@ function updateCartUI() {
 
     cartContainer.innerHTML = "";
     cart.forEach(item => {
+        let optionsText = [];
+        if (item.selectedSize) optionsText.push(`Taille: ${item.selectedSize}`);
+        if (item.selectedColor) optionsText.push(`Couleur: ${item.selectedColor}`);
+        const optsString = optionsText.length > 0 ? `<br><small style="color:#666">${optionsText.join(' | ')}</small>` : '';
+
         cartContainer.innerHTML += `
             <div class="cart-item">
                 <img src="${item.img}" alt="${item.name}">
                 <div class="cart-item-info">
-                    <div class="cart-item-title">${item.name}</div>
+                    <div class="cart-item-title">${item.name}${optsString}</div>
                     <div class="cart-item-price">${item.finalPrice} DH (x${item.qty})</div>
                 </div>
-                <button class="cart-item-remove" onclick="removeFromCart('${item.id}')" title="Supprimer de la commande">
-                    &times;
-                </button>
+                <button class="cart-item-remove" onclick="removeFromCart('${item.cartItemId}')">&times;</button>
             </div>
         `;
     });
 }
 
-function openCartModal() {
-    const modal = document.getElementById("cart-modal");
-    if (modal) modal.classList.add("active");
-}
-
-function closeCartModal() {
-    const modal = document.getElementById("cart-modal");
-    if (modal) modal.classList.remove("active");
-}
+function openCartModal() { document.getElementById("cart-modal").classList.add("active"); }
+function closeCartModal() { document.getElementById("cart-modal").classList.remove("active"); }
 
 // ==========================================
-// 5. PANNEAU ADMIN & GESTION FIREBASE
+// 4. ADMIN & FIREBASE
 // ==========================================
-function openAdminModal() {
-    renderAdminList();
-    const modal = document.getElementById("admin-modal");
-    if (modal) modal.classList.add("active");
-}
-
-function closeAdminModal() {
-    const modal = document.getElementById("admin-modal");
-    if (modal) modal.classList.remove("active");
-}
+function openAdminModal() { renderAdminList(); document.getElementById("admin-modal").classList.add("active"); }
+function closeAdminModal() { document.getElementById("admin-modal").classList.remove("active"); }
 
 function renderAdminList() {
     const container = document.getElementById("admin-product-list");
@@ -239,7 +295,7 @@ function renderAdminList() {
                         ${p.inStock ? 'Mettre en rupture' : 'Remettre en stock'}
                     </button>
                     <button class="admin-btn-action btn-promo" onclick="setPromo('${p.id}')">
-                        ${p.discount > 0 ? `Promo: -${p.discount}% (Changer)` : 'Ajouter Promo'}
+                        ${p.discount > 0 ? `Promo: -${p.discount}%` : 'Ajouter Promo'}
                     </button>
                     <button class="admin-btn-action btn-delete" onclick="deleteProduct('${p.id}')">Supprimer</button>
                 </div>
@@ -259,81 +315,65 @@ function handleFileSelect(e) {
         reader.onload = function(event) {
             const imgUrl = event.target.result;
             uploadedImages.push(imgUrl);
-
             if (previewContainer) {
-                previewContainer.innerHTML += `
-                    <div class="preview-thumb">
-                        <img src="${imgUrl}" alt="Aperçu">
-                    </div>
-                `;
+                previewContainer.innerHTML += `<div class="preview-thumb"><img src="${imgUrl}"></div>`;
             }
         };
         reader.readAsDataURL(file);
     });
 }
 
-// AJOUT DE PRODUIT DANS FIREBASE
 function handleAddProduct(e) {
     e.preventDefault();
     const name = document.getElementById("admin-name").value.trim();
     const price = parseFloat(document.getElementById("admin-price").value);
     const category = document.getElementById("admin-category").value;
+    const sizes = document.getElementById("admin-sizes").value.trim();
+    const colors = document.getElementById("admin-colors").value.trim();
+    const description = document.getElementById("admin-description").value.trim();
 
     const finalImages = uploadedImages.length > 0 
         ? uploadedImages 
         : ["https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500"];
 
-    // Sauvegarde en ligne sur Firebase
     productsRef.push({
-        name: name,
-        price: price,
-        category: category,
+        name,
+        price,
+        category,
+        sizes,
+        colors,
+        description,
         images: finalImages,
         inStock: true,
         discount: 0
     }).then(() => {
         document.getElementById("add-product-form").reset();
-        const previewContainer = document.getElementById("file-preview-list");
-        if (previewContainer) previewContainer.innerHTML = "";
+        document.getElementById("file-preview-list").innerHTML = "";
         uploadedImages = [];
-    }).catch(err => {
-        alert("Erreur lors de l'ajout : " + err.message);
-    });
+    }).catch(err => alert("Erreur : " + err.message));
 }
 
-// CHANGER LE STOCK DANS FIREBASE
 function toggleStock(id) {
     const p = products.find(prod => prod.id === id);
-    if (p) {
-        database.ref('products/' + id).update({
-            inStock: !p.inStock
-        });
-    }
+    if (p) database.ref('products/' + id).update({ inStock: !p.inStock });
 }
 
-// METTRE UNE PROMO DANS FIREBASE
 function setPromo(id) {
     const p = products.find(prod => prod.id === id);
     if (p) {
-        const val = prompt("Entrez le pourcentage de réduction (ex: 20 pour 20%):", p.discount || 0);
+        const val = prompt("Pourcentage de réduction:", p.discount || 0);
         if (val !== null) {
-            const newDiscount = Math.min(100, Math.max(0, parseInt(val) || 0));
-            database.ref('products/' + id).update({
-                discount: newDiscount
-            });
+            database.ref('products/' + id).update({ discount: Math.min(100, Math.max(0, parseInt(val) || 0)) });
         }
     }
 }
 
-// SUPPRIMER UN PRODUIT DE FIREBASE
 function deleteProduct(id) {
-    if (confirm("Voulez-vous vraiment supprimer ce produit ?")) {
-        database.ref('products/' + id).remove();
-    }
+    if (confirm("Supprimer ce produit ?")) database.ref('products/' + id).remove();
 }
 
 // ==========================================
-// 6. VALIDATION & ENVOI WHATSAPP
+// 5. ENVOI WHATSAPP
 // ==========================================
 function validatePhoneInput(input) { input.value = input.value.replace(/[^0-9]/g, ''); }
 
@@ -342,8 +382,6 @@ function clearError(inputId) {
     const errorMsg = document.getElementById(`error-${inputId}`);
     if (input) input.classList.remove('input-error');
     if (errorMsg) { errorMsg.classList.remove('active'); errorMsg.textContent = ''; }
-    const globalError = document.getElementById('cart-global-error');
-    if (globalError) globalError.style.display = 'none';
 }
 
 function showError(inputId, message) {
@@ -358,27 +396,24 @@ function sendOrderToWhatsApp() {
     const name = document.getElementById("client-name").value.trim();
     const phone = document.getElementById("client-phone").value.trim();
     const city = document.getElementById("client-city").value.trim();
-    const globalError = document.getElementById("cart-global-error");
 
-    if (cart.length === 0) {
-        if (globalError) { globalError.textContent = "Votre panier est vide !"; globalError.style.display = "block"; }
-        return;
-    }
+    if (cart.length === 0) return;
 
-    if (!name) { showError("client-name", "Veuillez entrer votre nom complet."); hasError = true; }
-
-    const phoneRegex = /^[0-9]{10}$/;
-    if (!phone) { showError("client-phone", "Veuillez entrer votre numéro."); hasError = true; }
-    else if (!phoneRegex.test(phone)) { showError("client-phone", "Le numéro doit contenir exactement 10 chiffres."); hasError = true; }
-
-    if (!city) { showError("client-city", "Veuillez indiquer votre ville."); hasError = true; }
+    if (!name) { showError("client-name", "Entrez votre nom."); hasError = true; }
+    if (!phone || !/^[0-9]{10}$/.test(phone)) { showError("client-phone", "Numéro valide requis (10 chiffres)."); hasError = true; }
+    if (!city) { showError("client-city", "Indiquez votre ville."); hasError = true; }
 
     if (hasError) return;
 
     let orderList = "";
     let total = 0;
     cart.forEach(item => {
-        orderList += `• ${item.name} (x${item.qty}) - ${item.finalPrice * item.qty} DH\n`;
+        let details = [];
+        if (item.selectedSize) details.push(`Taille: ${item.selectedSize}`);
+        if (item.selectedColor) details.push(`Couleur: ${item.selectedColor}`);
+        const detailsStr = details.length > 0 ? ` (${details.join(', ')})` : '';
+
+        orderList += `• ${item.name}${detailsStr} (x${item.qty}) - ${item.finalPrice * item.qty} DH\n`;
         total += item.finalPrice * item.qty;
     });
 
