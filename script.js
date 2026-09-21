@@ -97,14 +97,20 @@ function renderProducts(items) {
     });
 }
 
+// Variable globale pour suivre l'image courante dans la pop-up
+let currentImageIndex = 0;
+let currentProductImages = [];
+
 function openProductDetailModal(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
     const finalPrice = getFinalPrice(product);
-    const imgList = product.images && product.images.length > 0 
+    currentProductImages = product.images && product.images.length > 0 
         ? product.images 
         : [product.img || "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500"];
+
+    currentImageIndex = 0;
 
     const sizes = product.sizes ? product.sizes.split(',').map(s => s.trim()) : [];
     const colors = product.colors ? product.colors.split(',').map(c => c.trim()) : [];
@@ -127,17 +133,19 @@ function openProductDetailModal(productId) {
         </div>
     ` : '';
 
-    let thumbsHTML = imgList.length > 1 ? `
+    let thumbsHTML = currentProductImages.length > 1 ? `
         <div class="detail-thumbs">
-            ${imgList.map((img, i) => `<img src="${img}" class="thumb-img ${i === 0 ? 'active' : ''}" onclick="changeDetailImage('${img}', this)">`).join('')}
+            ${currentProductImages.map((img, i) => `<img src="${img}" class="thumb-img ${i === 0 ? 'active' : ''}" onclick="setDetailImageByIndex(${i})">`).join('')}
         </div>
     ` : '';
 
     const detailBody = document.getElementById("product-detail-body");
     detailBody.innerHTML = `
         <div class="detail-grid">
-            <div class="detail-images">
-                <img src="${imgList[0]}" id="detail-main-img" class="detail-main-img">
+            <div class="detail-images-wrapper">
+                <div class="detail-img-slider" id="detail-slider">
+                    <img src="${currentProductImages[0]}" id="detail-main-img" class="detail-main-img" draggable="false">
+                </div>
                 ${thumbsHTML}
             </div>
             <div class="detail-info">
@@ -159,66 +167,73 @@ function openProductDetailModal(productId) {
     `;
 
     document.getElementById("product-detail-modal").classList.add("active");
+
+    // Activer le glissement (Swipe / Drag) sur l'image
+    initImageSwipe();
 }
 
-function closeProductDetailModal() {
-    document.getElementById("product-detail-modal").classList.remove("active");
+function setDetailImageByIndex(index) {
+    if (index < 0) index = currentProductImages.length - 1;
+    if (index >= currentProductImages.length) index = 0;
+    
+    currentImageIndex = index;
+    const mainImg = document.getElementById("detail-main-img");
+    if (mainImg) mainImg.src = currentProductImages[currentImageIndex];
+
+    const thumbs = document.querySelectorAll(".detail-thumbs .thumb-img");
+    thumbs.forEach((t, i) => {
+        if (i === currentImageIndex) t.classList.add("active");
+        else t.classList.remove("active");
+    });
 }
 
-function changeDetailImage(src, element) {
-    document.getElementById("detail-main-img").src = src;
-    element.parentElement.querySelectorAll('.thumb-img').forEach(el => el.classList.remove('active'));
-    element.classList.add('active');
-}
+// Navigation Clavier (Flèches Gauche / Droite)
+document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("product-detail-modal");
+    if (!modal || !modal.classList.contains("active")) return;
 
-function selectOption(btn) {
-    btn.parentElement.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-}
-
-function addToCartWithOptions(productId) {
-    const product = products.find(p => p.id === productId);
-    if (!product || !product.inStock) return;
-
-    const selectedSizeBtn = document.querySelector("#detail-sizes .option-btn.active");
-    const selectedColorBtn = document.querySelector("#detail-colors .option-btn.active");
-
-    const size = selectedSizeBtn ? selectedSizeBtn.textContent : null;
-    const color = selectedColorBtn ? selectedColorBtn.textContent : null;
-
-    const mainImg = (product.images && product.images[0]) || product.img;
-
-    const cartItemId = `${productId}-${size || ''}-${color || ''}`;
-    const existing = cart.find(i => i.cartItemId === cartItemId);
-
-    if (existing) {
-        existing.qty += 1;
-    } else {
-        cart.push({
-            ...product,
-            cartItemId,
-            selectedSize: size,
-            selectedColor: color,
-            img: mainImg,
-            qty: 1,
-            finalPrice: getFinalPrice(product)
-        });
+    if (e.key === "ArrowRight") {
+        setDetailImageByIndex(currentImageIndex + 1);
+    } else if (e.key === "ArrowLeft") {
+        setDetailImageByIndex(currentImageIndex - 1);
     }
+});
 
-    closeProductDetailModal();
-    updateCartUI();
-    openCartModal();
-}
+// Navigation Glissement Souris / Tactile (Swipe)
+function initImageSwipe() {
+    const slider = document.getElementById("detail-slider");
+    if (!slider) return;
 
-function filterProducts(category, btn) {
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    if (btn) btn.classList.add("active");
+    let startX = 0;
+    let isDragging = false;
 
-    if (category === "all") {
-        renderProducts(products);
-    } else {
-        renderProducts(products.filter(p => p.category === category));
-    }
+    // Souris
+    slider.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        startX = e.clientX;
+    });
+
+    slider.addEventListener("mouseup", (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        const diffX = e.clientX - startX;
+        if (diffX < -40) setDetailImageByIndex(currentImageIndex + 1); // Glisser vers la gauche -> Image suivante
+        if (diffX > 40) setDetailImageByIndex(currentImageIndex - 1);  // Glisser vers la droite -> Image précédente
+    });
+
+    slider.addEventListener("mouseleave", () => { isDragging = false; });
+
+    // Tactile (Mobile)
+    slider.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+    });
+
+    slider.addEventListener("touchend", (e) => {
+        const endX = e.changedTouches[0].clientX;
+        const diffX = endX - startX;
+        if (diffX < -40) setDetailImageByIndex(currentImageIndex + 1);
+        if (diffX > 40) setDetailImageByIndex(currentImageIndex - 1);
+    });
 }
 
 // ==========================================
@@ -420,3 +435,37 @@ function sendOrderToWhatsApp() {
     const msg = `*COMMANDE LUNARAE.ma*\n\nNom: ${name}\nTél: ${phone}\nVille: ${city}\n\nArticles:\n${orderList}\nTotal: ${total} DH`;
     window.open(`https://wa.me/212705948052?text=${encodeURIComponent(msg)}`, "_blank");
 }
+// Navigation Glissement Tactile (Mobile uniquement)
+function initImageSwipe() {
+    const slider = document.getElementById("detail-slider");
+    if (!slider) return;
+
+    let startX = 0;
+
+    // Tactile (Mobile)
+    slider.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+    });
+
+    slider.addEventListener("touchend", (e) => {
+        const endX = e.changedTouches[0].clientX;
+        const diffX = endX - startX;
+        if (diffX < -40) setDetailImageByIndex(currentImageIndex + 1); // Glisser vers la gauche -> Image suivante
+        if (diffX > 40) setDetailImageByIndex(currentImageIndex - 1);  // Glisser vers la droite -> Image précédente
+    });
+}
+// Fonction pour fermer la pop-up de détails
+function closeProductDetailModal() {
+    const modal = document.getElementById("product-detail-modal");
+    if (modal) {
+        modal.classList.remove("active");
+    }
+}
+
+// Optionnel : Fermer la pop-up en cliquant n'importe où à l'extérieur de la fenêtre
+window.addEventListener("click", (event) => {
+    const detailModal = document.getElementById("product-detail-modal");
+    if (event.target === detailModal) {
+        closeProductDetailModal();
+    }
+});
