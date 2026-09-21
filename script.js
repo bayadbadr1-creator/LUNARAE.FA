@@ -20,6 +20,11 @@ let cart = [];
 let keyBuffer = "";
 let uploadedImages = [];
 
+// Variables globales pour le carrousel de la pop-up
+let currentImageIndex = 0;
+let currentProductImages = [];
+
+// Écouteur Firebase pour récupérer les produits
 productsRef.on('value', (snapshot) => {
     const data = snapshot.val();
     products = [];
@@ -35,6 +40,7 @@ productsRef.on('value', (snapshot) => {
     renderAdminList();
 });
 
+// Détection de l'accès Admin secret (saisie clavier "admin")
 document.addEventListener("keydown", (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     keyBuffer += e.key.toLowerCase();
@@ -96,10 +102,6 @@ function renderProducts(items) {
         `;
     });
 }
-
-// Variable globale pour suivre l'image courante dans la pop-up
-let currentImageIndex = 0;
-let currentProductImages = [];
 
 function openProductDetailModal(productId) {
     const product = products.find(p => p.id === productId);
@@ -167,9 +169,17 @@ function openProductDetailModal(productId) {
     `;
 
     document.getElementById("product-detail-modal").classList.add("active");
+    document.body.classList.add("modal-open"); // Bloque le scroll arrière-plan
 
-    // Activer le glissement (Swipe / Drag) sur l'image
     initImageSwipe();
+}
+
+function closeProductDetailModal() {
+    const modal = document.getElementById("product-detail-modal");
+    if (modal) {
+        modal.classList.remove("active");
+        document.body.classList.remove("modal-open"); // Débloque le scroll
+    }
 }
 
 function setDetailImageByIndex(index) {
@@ -187,6 +197,56 @@ function setDetailImageByIndex(index) {
     });
 }
 
+function selectOption(btn) {
+    btn.parentElement.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function addToCartWithOptions(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product || !product.inStock) return;
+
+    const selectedSizeBtn = document.querySelector("#detail-sizes .option-btn.active");
+    const selectedColorBtn = document.querySelector("#detail-colors .option-btn.active");
+
+    const size = selectedSizeBtn ? selectedSizeBtn.textContent : null;
+    const color = selectedColorBtn ? selectedColorBtn.textContent : null;
+
+    const mainImg = (product.images && product.images[0]) || product.img;
+
+    const cartItemId = `${productId}-${size || ''}-${color || ''}`;
+    const existing = cart.find(i => i.cartItemId === cartItemId);
+
+    if (existing) {
+        existing.qty += 1;
+    } else {
+        cart.push({
+            ...product,
+            cartItemId,
+            selectedSize: size,
+            selectedColor: color,
+            img: mainImg,
+            qty: 1,
+            finalPrice: getFinalPrice(product)
+        });
+    }
+
+    closeProductDetailModal();
+    updateCartUI();
+    openCartModal();
+}
+
+function filterProducts(category, btn) {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+
+    if (category === "all") {
+        renderProducts(products);
+    } else {
+        renderProducts(products.filter(p => p.category === category));
+    }
+}
+
 // Navigation Clavier (Flèches Gauche / Droite)
 document.addEventListener("keydown", (e) => {
     const modal = document.getElementById("product-detail-modal");
@@ -199,31 +259,13 @@ document.addEventListener("keydown", (e) => {
     }
 });
 
-// Navigation Glissement Souris / Tactile (Swipe)
+// Navigation Glissement Tactile (Mobile)
 function initImageSwipe() {
     const slider = document.getElementById("detail-slider");
     if (!slider) return;
 
     let startX = 0;
-    let isDragging = false;
 
-    // Souris
-    slider.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        startX = e.clientX;
-    });
-
-    slider.addEventListener("mouseup", (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-        const diffX = e.clientX - startX;
-        if (diffX < -40) setDetailImageByIndex(currentImageIndex + 1); // Glisser vers la gauche -> Image suivante
-        if (diffX > 40) setDetailImageByIndex(currentImageIndex - 1);  // Glisser vers la droite -> Image précédente
-    });
-
-    slider.addEventListener("mouseleave", () => { isDragging = false; });
-
-    // Tactile (Mobile)
     slider.addEventListener("touchstart", (e) => {
         startX = e.touches[0].clientX;
     });
@@ -284,14 +326,29 @@ function updateCartUI() {
     });
 }
 
-function openCartModal() { document.getElementById("cart-modal").classList.add("active"); }
-function closeCartModal() { document.getElementById("cart-modal").classList.remove("active"); }
+function openCartModal() {
+    document.getElementById("cart-modal").classList.add("active");
+    document.body.classList.add("modal-open");
+}
+
+function closeCartModal() {
+    document.getElementById("cart-modal").classList.remove("active");
+    document.body.classList.remove("modal-open");
+}
 
 // ==========================================
 // 4. ADMIN & FIREBASE
 // ==========================================
-function openAdminModal() { renderAdminList(); document.getElementById("admin-modal").classList.add("active"); }
-function closeAdminModal() { document.getElementById("admin-modal").classList.remove("active"); }
+function openAdminModal() {
+    renderAdminList();
+    document.getElementById("admin-modal").classList.add("active");
+    document.body.classList.add("modal-open");
+}
+
+function closeAdminModal() {
+    document.getElementById("admin-modal").classList.remove("active");
+    document.body.classList.remove("modal-open");
+}
 
 function renderAdminList() {
     const container = document.getElementById("admin-product-list");
@@ -388,7 +445,7 @@ function deleteProduct(id) {
 }
 
 // ==========================================
-// 5. ENVOI WHATSAPP
+// 5. ENVOI WHATSAPP & FERMETURE EXTERIEURE
 // ==========================================
 function validatePhoneInput(input) { input.value = input.value.replace(/[^0-9]/g, ''); }
 
@@ -435,37 +492,14 @@ function sendOrderToWhatsApp() {
     const msg = `*COMMANDE LUNARAE.ma*\n\nNom: ${name}\nTél: ${phone}\nVille: ${city}\n\nArticles:\n${orderList}\nTotal: ${total} DH`;
     window.open(`https://wa.me/212705948052?text=${encodeURIComponent(msg)}`, "_blank");
 }
-// Navigation Glissement Tactile (Mobile uniquement)
-function initImageSwipe() {
-    const slider = document.getElementById("detail-slider");
-    if (!slider) return;
 
-    let startX = 0;
-
-    // Tactile (Mobile)
-    slider.addEventListener("touchstart", (e) => {
-        startX = e.touches[0].clientX;
-    });
-
-    slider.addEventListener("touchend", (e) => {
-        const endX = e.changedTouches[0].clientX;
-        const diffX = endX - startX;
-        if (diffX < -40) setDetailImageByIndex(currentImageIndex + 1); // Glisser vers la gauche -> Image suivante
-        if (diffX > 40) setDetailImageByIndex(currentImageIndex - 1);  // Glisser vers la droite -> Image précédente
-    });
-}
-// Fonction pour fermer la pop-up de détails
-function closeProductDetailModal() {
-    const modal = document.getElementById("product-detail-modal");
-    if (modal) {
-        modal.classList.remove("active");
-    }
-}
-
-// Optionnel : Fermer la pop-up en cliquant n'importe où à l'extérieur de la fenêtre
+// Fermeture des pop-ups lors d'un clic en dehors de la fenêtre
 window.addEventListener("click", (event) => {
     const detailModal = document.getElementById("product-detail-modal");
-    if (event.target === detailModal) {
-        closeProductDetailModal();
-    }
+    const cartModal = document.getElementById("cart-modal");
+    const adminModal = document.getElementById("admin-modal");
+
+    if (event.target === detailModal) closeProductDetailModal();
+    if (event.target === cartModal) closeCartModal();
+    if (event.target === adminModal) closeAdminModal();
 });

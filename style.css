@@ -452,3 +452,7 @@ body {
     border-radius: 6px;
     padding: 5px;
 }
+/* Empêche le défilement de la page arrière-plan */
+body.modal-open {
+    overflow: hidden;
+}
